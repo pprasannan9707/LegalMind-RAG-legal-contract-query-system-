@@ -1,0 +1,9 @@
+query,ground_truth,generated_answer,precision_at_k,recall_at_k,mrr,max_chunk_score,relevant_chunks,answer_relevance,faithfulness_score,hallucination_rate,faithfulness_reasoning,query_rewritten,chunk_size,query_rewriting
+"Highlight the parts (if any) of this contract related to ""Document Name"" that should be reviewed by a lawyer. Details: The name of the contract",SUPPLY CONTRACT,"The provided documents do not contain sufficient information to answer this question as it relates to ""Document Name"" that should be reviewed by a lawyer. However, the contracts provided do contain various provisions and clauses that are typically reviewed by lawyers, such as non-compete and non-solicitation agreements (Source 2), promotion agreements (Source 1, Source 3, Source 5), and corporate sponsorship agreements (Source 4). 
+
+These sources suggest that a lawyer should review the entire contract, including but not limited to:
+- Non-compete and non-solicitation provisions (Source 2)
+- Promotion agreements, including terms and conditions (Source 1, Source 3, Source 5)
+- Corporate sponsorship agreements, including terms of sponsorship and obligations of the parties (Source 4)
+
+It is essential to have a lawyer review the specific contract in question to identify the particular provisions that require attention. (Source 1, Source 2, Source 3, Source 4, Source 5)",1.0,1.0,1.0,0.643,5,0.7974,0.2,0.8,"The AI answer introduces unrelated concepts and sources not present in the provided context, making most of its claims unsupported.","The parties agree to submit the contractual provisions pertaining to ""Document Name"" in the agreement entitled ""The name of the contract"" for review and advisement by legal counsel.",512,True
