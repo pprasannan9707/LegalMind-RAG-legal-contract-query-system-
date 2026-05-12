@@ -89,7 +89,6 @@ cd legalminds-rag
 python -m venv venv
 source venv/bin/activate
 
-pip install -r requirements.txt
 ```
 
 ### 2. Add your Groq API key
