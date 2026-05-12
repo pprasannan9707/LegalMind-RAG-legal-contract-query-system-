@@ -306,7 +306,7 @@ All scores above 0.60 threshold — BGE-Large bridges the gap. Query rewriting a
 
 ## Author
 
-Built by Pooja for the Meraki Labs Founding AI Engineer Work Trial — May 2026.
+Built by Pooja- May 2026.
 EOF
 
 
