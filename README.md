@@ -154,7 +154,7 @@ Open `http://localhost:8501` in your browser.
 
 ## Troubleshooting
 
-If you encounter `KeyError: "['retrieval_precision'] not in index"`, run the fix script:
+### If you encounter `KeyError: "['retrieval_precision'] not in index"`, run the fix script:
 
 ```bash
 python3 -c "
@@ -169,10 +169,21 @@ open('interface/app.py','w').write(content)
 print('Fixed')
 "
 python run.py --step app
-```
 
 ---
+### If you encounter clear function issue run the fix script:
 
+python3 -c "
+content = open('interface/app.py').read()
+old = '''if clear_btn:
+    st.session_state[\"query_input\"] = \"\"
+    st.rerun()'''
+new = '''if clear_btn:
+    st.rerun()'''
+open('interface/app.py','w').write(content.replace(old, new))
+print('Fixed')
+"
+```
 ## Example
 
 ### Query
