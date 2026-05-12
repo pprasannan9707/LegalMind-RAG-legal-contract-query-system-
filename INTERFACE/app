@@ -1,1 +1,231 @@
+"""
+interface/app.py
+----------------
+Streamlit query interface for LegalMind RAG.
+Run with: streamlit run interface/app.py
+"""
+
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import streamlit as st
+import pandas as pd
+import json
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ── Page Config ───────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="LegalMind RAG",
+    page_icon="⚖️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ── Custom CSS ────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Source+Sans+3:wght@400;500&display=swap');
+  
+  html, body, [class*="css"] {
+    font-family: 'Source Sans 3', sans-serif;
+  }
+  
+  h1, h2, h3 {
+    font-family: 'Playfair Display', serif;
+  }
+  
+  .main-header {
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    color: white;
+  }
+  
+  .answer-box {
+    background: #f8f9fa;
+    border-left: 4px solid #2c5364;
+    padding: 1.5rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1rem 0;
+  }
+  
+  .chunk-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  
+  .score-badge {
+    background: #2c5364;
+    color: white;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  
+  .metric-card {
+    background: #0f2027;
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+  }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Header ────────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="main-header">
+  <h1 style="margin:0; font-size:2.2rem;">⚖️ LegalMind RAG</h1>
+  <p style="margin:0.5rem 0 0; opacity:0.85; font-size:1.05rem;">
+    AI-powered legal document assistant — powered by Groq + ChromaDB
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### ⚙️ Settings")
+    top_k = st.slider("Top-K chunks to retrieve", min_value=1, max_value=10, value=5)
+    show_chunks = st.toggle("Show retrieved chunks", value=True)
+    use_rewrite = st.toggle("Query rewriting (legal terminology)", value=True, help="Rewrites your query into formal legal language before retrieval. Improves recall for plain-English questions.")
+    show_scores = st.toggle("Show similarity scores", value=True)
+
+    st.markdown("---")
+    st.markdown("### 📖 About")
+    st.markdown("""
+This system uses:
+- **Corpus**: CUAD (500+ legal contracts)
+- **Embeddings**: `BAAI/bge-large-en-v1.5`
+- **Vector DB**: ChromaDB
+- **LLM**: Groq (LLaMA 3 8B)
+- **Eval**: Custom faithfulness & precision metrics
+    """)
+
+    st.markdown("---")
+    st.markdown("### 💡 Example Queries")
+    examples = [
+        "What are the termination clauses?",
+        "What is the notice period for contract cancellation?",
+        "Are there any non-compete clauses?",
+        "What happens in case of breach of confidentiality?",
+        "What are the payment terms and conditions?",
+        "Who owns the intellectual property?",
+    ]
+    for ex in examples:
+        if st.button(ex, use_container_width=True):
+            st.session_state["query_input"] = ex
+
+
+# ── Query Interface ────────────────────────────────────────────────────────────
+query = st.text_input(
+    "🔍 Ask a question about legal contracts",
+    placeholder="e.g. What are the termination clauses in this agreement?",
+    key="query_input",
+)
+
+col1, col2 = st.columns([1, 5])
+with col1:
+    search_btn = st.button("Search", type="primary", use_container_width=True)
+with col2:
+    clear_btn = st.button("Clear", use_container_width=True)
+
+if clear_btn:
+    st.session_state["query_input"] = ""
+    st.rerun()
+
+# ── Run RAG ───────────────────────────────────────────────────────────────────
+if search_btn and query.strip():
+    with st.spinner("🔍 Retrieving relevant clauses..."):
+        try:
+            from retrieval.retrieve import retrieve, format_context
+            chunks = retrieve(query, top_k=top_k, rewrite=use_rewrite)
+            context = format_context(chunks)
+        except Exception as e:
+            st.error(f"Retrieval error: {e}")
+            st.stop()
+
+    with st.spinner("💡 Generating answer with Groq LLaMA 3..."):
+        try:
+            from generation.generate import generate_answer
+            result = generate_answer(query, context)
+            answer = result["answer"]
+        except Exception as e:
+            st.error(f"Generation error: {e}")
+            st.stop()
+
+    # ── Answer ────────────────────────────────────────────────────────────────
+    st.markdown("## 💡 Answer")
+    st.markdown(f'<div class="answer-box">{answer}</div>', unsafe_allow_html=True)
+
+    # ── Rewrite info ─────────────────────────────────────────────────────────
+    if use_rewrite and chunks:
+        rewritten_q = chunks[0].get('query_used', query)
+        if rewritten_q != query:
+            st.caption(f"🔄 Query rewritten to: *{rewritten_q}*")
+
+    # ── Token usage ───────────────────────────────────────────────────────────
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("Chunks Retrieved", len(chunks))
+    with c2:
+        st.metric("Prompt Tokens", result.get("prompt_tokens", "—"))
+    with c3:
+        st.metric("Completion Tokens", result.get("completion_tokens", "—"))
+
+    # ── Retrieved Chunks ──────────────────────────────────────────────────────
+    if show_chunks:
+        st.markdown("## 📄 Retrieved Context")
+        for i, chunk in enumerate(chunks, 1):
+            score_html = f'<span class="score-badge">score: {chunk["score"]}</span>' if show_scores else ""
+            st.markdown(f"""
+<div class="chunk-card">
+  <strong>Source {i} — {chunk['title']}</strong> &nbsp; {score_html}
+  <p style="margin-top:0.5rem; color:#333; font-size:0.92rem;">{chunk['text'][:500]}{'...' if len(chunk['text']) > 500 else ''}</p>
+</div>
+""", unsafe_allow_html=True)
+
+elif search_btn and not query.strip():
+    st.warning("Please enter a question to search.")
+
+# ── Eval Dashboard ────────────────────────────────────────────────────────────
+st.markdown("---")
+st.markdown("## 📊 Evaluation Results")
+
+results_files = [f for f in os.listdir("eval") if f.startswith("results_") and f.endswith(".csv")] if os.path.exists("eval") else []
+
+if results_files:
+    tabs = st.tabs(["📈 Metrics", "🔁 Before/After Fix"])
+
+    with tabs[0]:
+        for f in sorted(results_files):
+            df = pd.read_csv(f"eval/{f}")
+            label = f.replace("results_", "").replace(".csv", "")
+            st.markdown(f"**{label}**")
+            cols = st.columns(4)
+            cols[0].metric("Precision@K", f"{df['precision_at_k'].mean():.3f}")
+            cols[1].metric("Answer Relevance", f"{df['answer_relevance'].mean():.3f}")
+            cols[2].metric("Faithfulness", f"{df['faithfulness_score'].mean():.3f}")
+            cols[3].metric("Hallucination Rate", f"{df['hallucination_rate'].mean():.3f}")
+            display_cols = [c for c in ["query","precision_at_k","recall_at_k","mrr","answer_relevance","faithfulness_score","hallucination_rate"] if c in df.columns]
+            st.dataframe(df[display_cols], use_container_width=True)
+
+    with tabs[1]:
+        comp_path = "eval/before_after_comparison.csv"
+        if os.path.exists(comp_path):
+            comp = pd.read_csv(comp_path)
+            st.dataframe(comp, use_container_width=True)
+            st.success("✅ Failure Mode 1 fixed: chunk size reduced from 512 → 128 words")
+        else:
+            st.info("Run `python eval/failure_modes.py` to generate before/after comparison.")
+else:
+    st.info("Run `python eval/evaluator.py` first to generate evaluation results.")
 
